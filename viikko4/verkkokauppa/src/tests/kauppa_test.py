@@ -96,3 +96,30 @@ class TestKauppa(unittest.TestCase):
         self.pankki_mock.tilisiirto.assert_called_with("pekka", ANY, "12345", ANY, 5)
         # toistaiseksi ei välitetä kutsuun liittyvistä argumenteista
 
+    def test_aloita_asiointi_nollaa_edelliset_tiedot(self):
+        self.kauppa.aloita_asiointi()
+        self.kauppa.lisaa_koriin(1)
+        self.kauppa.aloita_asiointi()
+        
+        self.assertEqual(self.kauppa._ostoskori.hinta(), 0)
+
+    def test_uusi_viitenumero_joka_maksutapahtumalle(self):
+        self.viitegeneraattori_mock.uusi.side_effect = [1, 2]
+
+        self.kauppa.aloita_asiointi()
+        self.kauppa.lisaa_koriin(1)
+        self.kauppa.tilimaksu("pekka", "12345")
+        self.pankki_mock.tilisiirto.assert_called_with("pekka", 1, "12345", ANY, 5)
+        self.assertEqual(self.viitegeneraattori_mock.uusi.call_count, 1)
+        
+        self.kauppa.tilimaksu("pekka", "12345")
+        self.assertEqual(self.viitegeneraattori_mock.uusi.call_count, 2)
+        self.pankki_mock.tilisiirto.assert_called_with("pekka", 2, "12345", ANY, 5)
+
+    def test_tuotteen_poisto_korista_toimii(self):
+        self.kauppa.aloita_asiointi()
+        self.kauppa.lisaa_koriin(1)
+        self.assertEqual(self.kauppa._ostoskori.hinta(), 5)
+        
+        self.kauppa.poista_korista(1)
+        self.assertEqual(self.kauppa._ostoskori.hinta(), 0)
